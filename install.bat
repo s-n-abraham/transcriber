@@ -8,26 +8,42 @@ echo.
 echo === Transcriber setup ===
 echo.
 
-rem ---- 1. find Python (3.10 - 3.13 recommended)
+rem ---- 1. find a WORKING Python 3.10+ (the Microsoft Store "python.exe" stub does not count)
 set "PY="
-where python >nul 2>nul && set "PY=python"
-if not defined PY ( where py >nul 2>nul && set "PY=py -3" )
-if not defined PY (
-  echo Python was not found.
-  where winget >nul 2>nul
-  if errorlevel 1 (
-    echo Please install Python 3.12 from https://www.python.org/downloads/ ^(tick "Add python.exe to PATH"^),
-    echo then run install.bat again.
-    goto :fail
-  )
-  echo Installing Python 3.12 with winget...
-  winget install -e --id Python.Python.3.12 --accept-package-agreements --accept-source-agreements
+call :trypy "py -3"
+call :trypy python
+call :trypy python3
+if defined PY goto :havepy
+
+echo No working Python was found on this PC.
+echo ^(If you see a Microsoft Store message about "python", that is only a placeholder, not Python.^)
+where winget >nul 2>nul
+if errorlevel 1 (
   echo.
-  echo Python installed. Please CLOSE this window and run install.bat again.
+  echo Please install Python 3.12 from https://www.python.org/downloads/
+  echo and tick "Add python.exe to PATH", then run install.bat again.
   goto :fail
 )
+echo.
+echo Installing Python 3.12 with winget ^(about 30 MB^)...
+winget install -e --id Python.Python.3.12 --accept-package-agreements --accept-source-agreements
+set "PYX=%LocalAppData%\Programs\Python\Python312\python.exe"
+if exist "%PYX%" (
+  set PY="%PYX%"
+  goto :havepy
+)
+call :trypy "py -3"
+if defined PY goto :havepy
+echo.
+echo Python was installed, but this window cannot see it yet.
+echo Please CLOSE this window and run install.bat again.
+goto :fail
+
+:havepy
+echo Using Python: %PY%
 
 rem ---- 2. virtual environment + packages
+if exist ".venv" if not exist ".venv\Scripts\python.exe" rmdir /s /q ".venv"
 if not exist ".venv\Scripts\python.exe" (
   echo Creating environment...
   %PY% -m venv .venv || goto :fail
@@ -61,3 +77,10 @@ echo.
 echo Setup did not finish.
 if /i not "%~1"=="nopause" pause
 exit /b 1
+
+:trypy
+rem usage: call :trypy "<command>"  - sets PY if the command runs and is Python 3.10 or newer
+if defined PY exit /b 0
+%~1 -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 10) else 1)" >nul 2>nul
+if not errorlevel 1 set "PY=%~1"
+exit /b 0
