@@ -1,0 +1,3 @@
+faster-whisper
+yt-dlp
+av>=14,<16

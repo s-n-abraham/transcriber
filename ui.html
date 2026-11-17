@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Transcriber</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0D0D0D; --ink:#111111; --on-bg:#EDE6D6;
+  --mustard:#E9A45C; --red:#C9573F; --sage:#8DBA8A; --grey:#BEBEB9;
+  --panel-radius:22px; --control-radius:8px; --line:1.5px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--on-bg)}
+body{font:700 11px/1.5 'JetBrains Mono',ui-monospace,Consolas,monospace;text-transform:uppercase;letter-spacing:.04em;min-height:100vh}
+.wrap{max-width:980px;margin:0 auto;padding:16px 16px 28px}
+.display{font-family:'Archivo','Arial Black',sans-serif;font-variation-settings:'wdth' 125,'wght' 900;font-weight:900;letter-spacing:-1px;text-transform:uppercase}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:6px 6px 16px}
+.mark{font-size:clamp(34px,7vw,58px);line-height:.95;margin:0;color:var(--on-bg)}
+.dot{display:inline-block;width:.22em;height:.22em;border-radius:50%;background:var(--red);margin-left:.08em;vertical-align:baseline;animation:pulse 1.6s ease-in-out infinite}
+.live .dot{animation-duration:.8s}
+.head-cap{color:var(--on-bg);text-align:right;font-size:10px}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.panel{border-radius:var(--panel-radius);padding:14px;color:var(--ink);position:relative;animation:slidein .38s ease both}
+.panel:nth-child(2){animation-delay:.13s}.panel:nth-child(3){animation-delay:.26s}
+.panel:nth-child(4){animation-delay:.39s}.panel:nth-child(5){animation-delay:.52s}
+.panel:nth-child(6){animation-delay:.65s}
+.span2{grid-column:1 / -1}
+.mustard{background:var(--mustard)}.red{background:var(--red)}.sage{background:var(--sage)}.grey{background:var(--grey)}
+.cap{display:flex;justify-content:space-between;align-items:center;font-size:10px;margin-bottom:10px}
+h2{margin:0 0 10px;font-size:clamp(22px,4vw,30px);line-height:1}
+
+label{display:block;font-size:10px;margin:10px 0 4px}
+input,select,button{font:inherit;color:var(--ink);text-transform:inherit;letter-spacing:inherit}
+input[type=text],select{
+  width:100%;min-height:44px;padding:8px 12px;background:transparent;
+  border:var(--line) solid var(--ink);border-radius:var(--control-radius);outline:none;appearance:none;-webkit-appearance:none}
+input::placeholder{color:var(--ink);opacity:.62}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 55%,calc(100% - 12px) 55%;background-size:6px 6px;background-repeat:no-repeat;padding-right:32px}
+option{background:var(--grey);color:var(--ink)}
+
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{min-height:44px;padding:8px 14px;background:transparent;border:var(--line) solid var(--ink);border-radius:var(--control-radius);cursor:pointer}
+button.primary{background:var(--ink);color:var(--mustard)}
+button.primary.on-sage{color:var(--sage)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.go{flex:2;font-size:13px}
+
+.big{font-size:clamp(64px,13vw,104px);line-height:.9;margin:2px 0 8px}
+.big small{font-size:.35em;letter-spacing:0}
+.meter{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;height:26px;margin:6px 0 12px}
+.meter i{background:rgba(17,17,17,.2);border-radius:2px}
+.meter i.on{background:var(--ink)}
+.meter i.tip{background:var(--bg);box-shadow:inset 0 0 0 20px var(--ink)}
+.running .meter i.tip{background:#7a1d0c;animation:blink 1s steps(1) infinite}
+.spec{border:var(--line) solid var(--ink);border-radius:var(--control-radius);padding:8px 10px}
+.spec div{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+.spec div+div{border-top:1px dashed var(--ink)}
+.spec span:last-child{text-align:right;overflow-wrap:anywhere}
+.barcode{height:22px;margin-top:12px;background-image:repeating-linear-gradient(90deg,#111 0 2px,transparent 2px 4px,#111 4px 5px,transparent 5px 8px,#111 8px 11px,transparent 11px 12px)}
+
+.log{height:220px;overflow:auto;border:var(--line) solid var(--ink);border-radius:var(--control-radius);padding:8px 10px;font-size:11px;text-transform:none;letter-spacing:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.log .err{text-decoration:underline}
+.recent{list-style:none;margin:12px 0 0;padding:0}
+.recent li{display:flex;gap:10px;align-items:center;border-top:var(--line) solid var(--ink)}
+.recent li button{border:0;border-radius:0;flex:1;text-align:left;padding:8px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent .n{font-family:'Archivo',sans-serif;font-variation-settings:'wdth' 125,'wght' 900;font-size:18px;letter-spacing:-1px}
+.arrow{font-family:'Archivo',sans-serif;font-variation-settings:'wdth' 125,'wght' 900;font-size:20px;letter-spacing:0}
+.empty{opacity:.8;padding-top:8px}
+.target{position:absolute;right:14px;top:12px;width:34px;height:34px;animation:breathe 3s ease-in-out infinite}
+
+.check{display:flex;gap:10px;align-items:flex-start;min-height:44px;padding:8px 0;cursor:pointer;margin:6px 0 0;line-height:1.4}
+.check input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--ink)}
+/* compact status */
+.status .big{font-size:clamp(40px,7vw,56px);margin:0 0 6px}
+.status .meter{height:16px;margin:4px 0 8px;gap:2px}
+.status .barcode{height:14px;margin-top:8px}
+.status .target{width:26px;height:26px}
+.status .spec{padding:5px 10px}
+
+/* full-page reader */
+.reader{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;animation:fadein .22s ease both}
+.reader[hidden]{display:none}
+.rbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 16px;border-bottom:var(--line) solid #2c2c2c}
+.rbar button,.rbar input[type=text]{color:var(--on-bg);border-color:var(--on-bg)}
+.rbar input::placeholder{color:var(--on-bg);opacity:.7}
+.rbar input:focus-visible,.rbar button:focus-visible{outline-color:var(--on-bg)}
+.rbar button.primary{background:var(--mustard);color:var(--ink);border-color:var(--mustard)}
+.rbar input[type=text]{flex:1 1 200px;width:auto}
+.rbar .count{color:var(--on-bg)}
+.rscroll{flex:1;overflow:auto;padding:20px 16px 48px}
+.sheet{max-width:860px;margin:0 auto;background:#F5F1E6;color:var(--ink);border-radius:var(--panel-radius);padding:clamp(22px,5vw,56px);
+  font:400 var(--fs,16px)/1.8 'JetBrains Mono',ui-monospace,Consolas,monospace;text-transform:none;letter-spacing:0}
+.sheet .cap{display:flex;justify-content:space-between;font:700 10px/1.5 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
+.reader-title{font-size:clamp(28px,5vw,48px);line-height:1;margin:6px 0 12px;overflow-wrap:anywhere}
+.reader-meta{display:flex;flex-wrap:wrap;gap:6px 16px;font:700 10px/1.5 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em;
+  padding-bottom:16px;margin-bottom:26px;border-bottom:var(--line) solid var(--ink)}
+.reader-meta a{color:var(--ink)}
+.count{font-size:10px;min-width:7ch}
+.rp{display:grid;grid-template-columns:78px 1fr;gap:12px;margin:0 0 22px}
+.rp.nots{grid-template-columns:1fr}
+.rp.nots .ts{display:none}
+.ts{font:700 11px/2.6 'JetBrains Mono',monospace;color:var(--ink);text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.rp p{margin:0;overflow-wrap:anywhere}
+.sheet mark{background:var(--ink);color:#F5F1E6;border-radius:2px;padding:0 2px}
+.sheet mark.cur{background:var(--red);color:var(--ink);outline:var(--line) solid var(--ink)}
+.rempty{opacity:.85;font-size:12px}
+@media (max-width:700px){.rp{grid-template-columns:1fr;gap:0}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes slidein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+button{transition:transform .12s ease,filter .12s ease}
+button:active:not(:disabled){transform:scale(.95);filter:brightness(.9)}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@media (max-width:700px){.grid{grid-template-columns:1fr}.span2{grid-column:auto}.two{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header>
+    <h1 class="mark display">Transcriber<span class="dot" id="dot" aria-hidden="true"></span></h1>
+    <div class="head-cap">VIDEO → TEXT<br>RUNS ON THIS PC</div>
+  </header>
+
+  <main class="grid">
+    <!-- 01 SOURCE -->
+    <section class="panel mustard span2" aria-labelledby="h-src">
+      <div class="cap"><span>01 / SOURCE</span><span>YOUTUBE · FILE</span></div>
+      <h2 class="display" id="h-src">What are we reading?</h2>
+      <label for="target">YouTube link or video file path</label>
+      <input type="text" id="target" placeholder="PASTE A LINK OR CHOOSE A FILE" autocomplete="off" spellcheck="false">
+      <div class="row" style="margin-top:10px">
+        <button id="browse" type="button">Browse file…</button>
+        <button id="go" class="primary go" type="button">Transcribe <span class="arrow" aria-hidden="true">↗</span></button>
+      </div>
+    </section>
+
+    <!-- 02 ACTIVITY -->
+    <section class="panel grey" aria-labelledby="h-log">
+      <div class="cap"><span>02 / ACTIVITY</span><span id="spinner"></span></div>
+      <h2 class="display" id="h-log">Activity</h2>
+      <div class="log" id="log" role="log" aria-live="off">Ready. Nothing running.</div>
+    </section>
+
+    <!-- 03 TRANSCRIPTS -->
+    <section class="panel sage" aria-labelledby="h-out">
+      <div class="cap"><span>03 / TRANSCRIPTS</span><span>READABLE</span></div>
+      <h2 class="display" id="h-out">Transcripts</h2>
+      <div class="row">
+        <button id="openMain" class="primary on-sage" type="button" disabled>Read <span class="arrow" aria-hidden="true">↗</span></button>
+        <button id="openDir" type="button">Open folder</button>
+      </div>
+      <div class="row" style="margin-top:8px" id="fmtRow">
+        <button type="button" data-f="html" disabled>HTML</button>
+        <button type="button" data-f="md" disabled>MD</button>
+        <button type="button" data-f="txt" disabled>TXT</button>
+        <button type="button" data-f="srt" disabled>SRT</button>
+      </div>
+      <label>Recent</label>
+      <ul class="recent" id="recent"><li class="empty">NONE YET</li></ul>
+    </section>
+
+    <!-- 04 STATUS (compact) -->
+    <section class="panel red status" id="statusPanel" aria-labelledby="h-st">
+      <svg class="target" viewBox="0 0 34 34" fill="none" stroke="#111" stroke-width="1.5" aria-hidden="true">
+        <circle cx="17" cy="17" r="11"/><circle cx="17" cy="17" r="4"/><path d="M17 0v8M17 26v8M0 17h8M26 17h8"/>
+      </svg>
+      <div class="cap"><span id="h-st">04 / STATUS</span><span id="stateWord">IDLE</span></div>
+      <div class="big display" id="pct" aria-live="polite">0<small>%</small></div>
+      <div class="meter" id="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Transcription progress"></div>
+      <div class="spec">
+        <div><span>Title</span><span id="sTitle">—</span></div>
+        <div><span>Model</span><span id="sModel">small.en</span></div>
+      </div>
+      <div class="barcode" aria-hidden="true"></div>
+    </section>
+
+    <!-- 05 SETTINGS -->
+    <section class="panel mustard" aria-labelledby="h-set">
+      <div class="cap"><span>05 / SETTINGS</span><span>ENGLISH ONLY</span></div>
+      <h2 class="display" id="h-set">Setup</h2>
+      <div class="two">
+        <div>
+          <label for="model">Model</label>
+          <select id="model">
+            <option value="tiny.en">Tiny · fastest, rough</option>
+            <option value="base.en">Base · fast</option>
+            <option value="small.en" selected>Small · accurate</option>
+            <option value="medium.en">Medium · most accurate, slow</option>
+          </select>
+        </div>
+        <div>
+          <label for="captions">YouTube captions</label>
+          <select id="captions">
+            <option value="uploaded" selected>Creator-made only · accurate</option>
+            <option value="auto">Include auto-generated · fastest</option>
+            <option value="off">Never · always transcribe</option>
+          </select>
+        </div>
+      </div>
+      <label for="outdir">Save to</label>
+      <div class="row">
+        <input type="text" id="outdir" spellcheck="false" style="flex:3">
+        <button id="chdir" type="button" style="flex:1">Change</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- FULL-PAGE READER -->
+<div class="reader" id="reader" hidden role="dialog" aria-modal="true" aria-labelledby="reader-h">
+  <div class="rbar">
+    <button type="button" id="rBack">← Back</button>
+    <input type="text" id="rSearch" placeholder="SEARCH THIS TRANSCRIPT" aria-label="Search this transcript" autocomplete="off">
+    <span class="count" id="rHits" aria-live="polite"></span>
+    <button type="button" id="rPrev" aria-label="Previous match">↑</button>
+    <button type="button" id="rNext" aria-label="Next match">↓</button>
+    <button type="button" id="rTs" aria-pressed="true">Timestamps: on</button>
+    <button type="button" id="rSmall" aria-label="Smaller text">A−</button>
+    <button type="button" id="rBig" aria-label="Larger text">A+</button>
+    <button type="button" id="rCopy" class="primary">Copy text</button>
+  </div>
+  <div class="rscroll" id="rscroll">
+    <article class="sheet" id="sheet">
+      <div class="cap"><span>TRANSCRIPT</span><span id="rCount"></span></div>
+      <h1 class="reader-title display" id="reader-h">Transcript</h1>
+      <div class="reader-meta" id="rMeta"></div>
+      <div id="paper"></div>
+    </article>
+  </div>
+</div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = id => document.getElementById(id);
+const api = (path, body) => fetch(path, {
+  method: body ? "POST" : "GET",
+  headers: {"X-Token": TOKEN, "Content-Type": "application/json"},
+  body: body ? JSON.stringify(body) : undefined
+}).then(r => r.json());
+
+// meter
+const meter = $("meter");
+for (let i = 0; i < 20; i++) meter.appendChild(document.createElement("i"));
+function setMeter(p) {
+  const on = Math.floor(p / 5), cells = meter.children;
+  for (let i = 0; i < 20; i++) cells[i].className = i < on ? (i === on - 1 ? "on tip" : "on") : "";
+  meter.setAttribute("aria-valuenow", Math.round(p));
+}
+
+let polling = null, lastFiles = {}, lastLogLen = 0;
+
+function render(s) {
+  const running = s.status === "running";
+  const p = s.status === "done" ? 100 : s.pct * 100;
+  $("pct").innerHTML = Math.round(p) + "<small>%</small>";
+  setMeter(p);
+  $("statusPanel").classList.toggle("running", running);
+  $("app").classList.toggle("live", running);
+  $("stateWord").textContent = {idle:"IDLE",running:"WORKING",done:"DONE",error:"ERROR"}[s.status];
+  $("spinner").innerHTML = running ? '<span class="spin" aria-hidden="true">↻</span>' : "";
+  $("go").disabled = running;
+  const t = s.log.find(l => l.startsWith("Title: "));
+  $("sTitle").textContent = t ? t.slice(7) : "—";
+  if (s.log.length !== lastLogLen) {
+    lastLogLen = s.log.length;
+    const el = $("log");
+    el.innerHTML = "";
+    s.log.forEach(l => { const d = document.createElement("div"); d.textContent = l;
+      if (l.startsWith("ERROR")) d.className = "err"; el.appendChild(d); });
+    el.scrollTop = el.scrollHeight;
+  }
+  lastFiles = s.files || {};
+  updateReadBtn();
+  document.querySelectorAll("#fmtRow button").forEach(b => b.disabled = !lastFiles[b.dataset.f]);
+  if (s.status === "done" && polling) {
+    stop(); loadHistory();
+    loadReader(stem(lastFiles.html), true);
+  }
+  if (s.status === "error" && polling) stop();
+}
+function stop() { clearInterval(polling); polling = null; }
+function startPolling() { if (!polling) polling = setInterval(() => api("/api/status").then(render), 700); }
+
+function open_(path) { if (path) api("/api/open", {path}); }
+
+async function loadHistory() {
+  const items = await api("/api/history");
+  const ul = $("recent");
+  ul.innerHTML = "";
+  histItems = items; updateReadBtn();
+  if (!items.length) { ul.innerHTML = '<li class="empty">NONE YET</li>'; return; }
+  items.forEach((it, i) => {
+    const li = document.createElement("li");
+    const n = document.createElement("span"); n.className = "n"; n.textContent = String(i + 1).padStart(2, "0");
+    const b = document.createElement("button"); b.type = "button"; b.textContent = it.name; b.title = it.name;
+    b.addEventListener("click", () => loadReader(it.name, true));
+    li.append(n, b); ul.appendChild(li);
+  });
+}
+
+/* ---------- reader ---------- */
+const stem = p => p.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
+const fmt = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : String(m).padStart(2, "0")) + ":" + String(x).padStart(2, "0"); };
+let doc = null, curName = "", histItems = [], hits = [], cur = -1, fs = 16, showTs = true;
+const paper = $("paper"), sheet = $("sheet");
+function updateReadBtn() { $("openMain").disabled = !(curName || (lastFiles && lastFiles.html) || histItems.length); }
+function openReader() {
+  $("reader").hidden = false; document.body.style.overflow = "hidden";
+  $("rscroll").scrollTop = 0; $("rBack").focus();
+}
+function closeReader() { $("reader").hidden = true; document.body.style.overflow = ""; }
+
+async function loadReader(name, scroll) {
+  const d = await api("/api/transcript?name=" + encodeURIComponent(name));
+  if (d.error) { $("log").textContent = d.error; return; }
+  doc = d; curName = name; updateReadBtn(); $("rSearch").value = "";
+  $("reader-h").textContent = d.title;
+  const meta = $("rMeta"); meta.innerHTML = "";
+  [d.uploader, d.duration ? fmt(d.duration) : null, "LANG " + d.language, d.paragraphs.length + " PARAGRAPHS"]
+    .filter(Boolean).forEach(t => { const s = document.createElement("span"); s.textContent = t; meta.appendChild(s); });
+  if (d.url) { const a = document.createElement("a"); a.href = d.url; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = "ORIGINAL VIDEO ↗"; meta.appendChild(a); }
+  $("rCount").textContent = d.paragraphs.length + " PARAGRAPHS";
+  renderReader();
+  if (scroll) openReader();
+}
+
+function renderReader() {
+  const q = $("rSearch").value.trim();
+  const re = q ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi") : null;
+  paper.innerHTML = ""; hits = []; cur = -1;
+  doc.paragraphs.forEach(p => {
+    const row = document.createElement("div"); row.className = "rp" + (showTs ? "" : " nots");
+    let ts;
+    if (p.link) { ts = document.createElement("a"); ts.href = p.link; ts.target = "_blank"; ts.rel = "noopener"; }
+    else ts = document.createElement("span");
+    ts.className = "ts"; ts.textContent = fmt(p.start);
+    const t = document.createElement("p");
+    if (re) {
+      let last = 0, m; re.lastIndex = 0;
+      while ((m = re.exec(p.text))) {
+        if (!m[0]) { re.lastIndex++; continue; }
+        t.append(p.text.slice(last, m.index));
+        const mk = document.createElement("mark"); mk.textContent = m[0]; t.appendChild(mk); hits.push(mk);
+        last = m.index + m[0].length;
+      }
+      t.append(p.text.slice(last));
+    } else t.textContent = p.text;
+    row.append(ts, t); paper.appendChild(row);
+  });
+  $("rHits").textContent = re ? (hits.length ? "1/" + hits.length : "0 HITS") : "";
+  if (hits.length) jump(0);
+}
+
+function jump(i) {
+  if (!hits.length) return;
+  if (cur >= 0) hits[cur].classList.remove("cur");
+  cur = (i + hits.length) % hits.length;
+  hits[cur].classList.add("cur");
+  hits[cur].scrollIntoView({block: "center"});
+  $("rHits").textContent = (cur + 1) + "/" + hits.length;
+}
+
+$("rSearch").addEventListener("input", () => doc && renderReader());
+$("rSearch").addEventListener("keydown", e => { if (e.key === "Enter") jump(cur + (e.shiftKey ? -1 : 1)); });
+$("rNext").addEventListener("click", () => jump(cur + 1));
+$("rPrev").addEventListener("click", () => jump(cur - 1));
+$("rTs").addEventListener("click", () => {
+  showTs = !showTs;
+  $("rTs").textContent = "Timestamps: " + (showTs ? "on" : "off");
+  $("rTs").setAttribute("aria-pressed", showTs);
+  paper.querySelectorAll(".rp").forEach(r => r.classList.toggle("nots", !showTs));
+});
+const setFs = n => { fs = Math.min(26, Math.max(12, n)); sheet.style.setProperty("--fs", fs + "px"); };
+$("rSmall").addEventListener("click", () => setFs(fs - 1));
+$("rBig").addEventListener("click", () => setFs(fs + 1));
+$("rCopy").addEventListener("click", async () => {
+  if (!doc) return;
+  const text = doc.title + "\n\n" + doc.paragraphs.map(p => (showTs ? "[" + fmt(p.start) + "] " : "") + p.text).join("\n\n");
+  try { await navigator.clipboard.writeText(text); $("rCopy").textContent = "Copied ✓"; }
+  catch { $("rCopy").textContent = "Copy failed"; }
+  setTimeout(() => $("rCopy").textContent = "Copy text", 1600);
+});
+
+$("go").addEventListener("click", async () => {
+  const target = $("target").value.trim();
+  if (!target) { $("target").focus(); $("log").textContent = "Paste a YouTube link or choose a video file first."; return; }
+  lastLogLen = -1;
+  const r = await api("/api/start", {target, model: $("model").value, outDir: $("outdir").value, captions: $("captions").value});
+  if (r.error) { $("log").textContent = r.error; return; }
+  $("sModel").textContent = $("model").value;
+  startPolling();
+});
+$("target").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+$("browse").addEventListener("click", async () => {
+  const r = await api("/api/browse", {kind: "file"});
+  if (r.path) $("target").value = r.path;
+});
+$("chdir").addEventListener("click", async () => {
+  const r = await api("/api/browse", {kind: "folder", initial: $("outdir").value});
+  if (r.path) { $("outdir").value = r.path; }
+});
+$("openMain").addEventListener("click", () => {
+  if (doc && curName) openReader();
+  else { const n = lastFiles.html ? stem(lastFiles.html) : (histItems[0] && histItems[0].name); if (n) loadReader(n, true); }
+});
+$("rBack").addEventListener("click", closeReader);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("reader").hidden) closeReader(); });
+$("openDir").addEventListener("click", () => api("/api/openfolder", {}));
+document.querySelectorAll("#fmtRow button").forEach(b => b.addEventListener("click", () => open_(lastFiles[b.dataset.f])));
+$("model").addEventListener("change", () => $("sModel").textContent = $("model").value);
+
+(async function init() {
+  const s = await api("/api/status");
+  $("outdir").value = s.outDir;
+  lastLogLen = -1;
+  render(s);
+  if (s.status === "running") startPolling();
+  loadHistory();
+  setInterval(() => api("/api/ping"), 4000);
+  api("/api/ping");
+})();
+</script>
+</body>
+</html>
